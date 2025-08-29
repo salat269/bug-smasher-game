@@ -1546,10 +1546,58 @@
             }
             
             // Сохранение на Railway сервер (если не в Telegram)
-            saveScoreToServer(playerName);
+            // Отключаем fallback на JSONBin.io чтобы избежать дублирования
+            saveScoreToServerOnly(playerName);
         }
         
-        // Функция сохранения результата на Railway сервер
+        // Функция сохранения результата только на Railway сервер (без fallback)
+        async function saveScoreToServerOnly(playerName) {
+            // Защита от множественных вызовов
+            if (saveScoreToServerOnly.isSaving) {
+                console.log('Сохранение уже в процессе, игнорируем повторный вызов');
+                return;
+            }
+            
+            saveScoreToServerOnly.isSaving = true;
+            
+            try {
+                const scoreData = {
+                    playerName: playerName,
+                    score: gameState.score,
+                    bugs: gameState.bugsEliminated,
+                    maxCombo: gameState.maxCombo
+                };
+                
+                const response = await fetch(`${SERVER_URL}/api/score`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(scoreData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Результат сохранен на Railway сервере:', result.message);
+                    // Обновляем лидерборд с сервера
+                    await loadLeaderboardFromServer();
+                } else {
+                    console.error('Ошибка сохранения на Railway сервере:', result.error);
+                    // Fallback только на localStorage
+                    saveToLocalStorage(playerName);
+                }
+            } catch (error) {
+                console.error('Ошибка подключения к Railway серверу:', error);
+                // Fallback только на localStorage
+                saveToLocalStorage(playerName);
+            } finally {
+                saveScoreToServerOnly.isSaving = false;
+                restartGame();
+            }
+        }
+        
+        // Функция сохранения результата на Railway сервер (с fallback на JSONBin.io)
         async function saveScoreToServer(playerName) {
             try {
                 const scoreData = {
