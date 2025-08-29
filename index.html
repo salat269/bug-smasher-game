@@ -1129,12 +1129,41 @@
             { type: 'minor', points: 10, className: 'minor-bug', probability: 0.5 }
         ];
 
-        // Загрузить лидерборд из JSONBin.io
+        // Загрузить лидерборд с Railway сервера
         let leaderboardData = [];
+        const SERVER_URL = 'https://bug-smasher-game-production.up.railway.app';
         const JSONBIN_API_KEY = '$2a$10$24K2WireYEjy.ps/aBfqd.3Jih4k1WiguaBXwTNj2GLrqJfF7NJEi';
         const JSONBIN_BIN_ID = '68b1b5ddd0ea881f406a454d';
         
-        // Функция загрузки лидерборда с JSONBin.io
+        // Функция загрузки лидерборда с Railway сервера
+        async function loadLeaderboardFromServer() {
+            try {
+                const response = await fetch(`${SERVER_URL}/api/leaderboard`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    leaderboardData = data.leaderboard.map(item => ({
+                        name: item.player_name,
+                        score: item.score,
+                        bugs: item.bugs,
+                        combo: item.max_combo,
+                        date: item.date
+                    }));
+                    renderLeaderboard();
+                    console.log('Лидерборд загружен с Railway сервера:', leaderboardData);
+                } else {
+                    console.error('Ошибка загрузки лидерборда:', data.error);
+                    // Fallback на JSONBin.io
+                    await loadLeaderboardFromJSONBin();
+                }
+            } catch (error) {
+                console.error('Ошибка подключения к Railway серверу:', error);
+                // Fallback на JSONBin.io
+                await loadLeaderboardFromJSONBin();
+            }
+        }
+        
+        // Функция загрузки лидерборда с JSONBin.io (fallback)
         async function loadLeaderboardFromJSONBin() {
             try {
                 const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
@@ -1158,7 +1187,7 @@
                 }
                 
                 renderLeaderboard();
-                console.log('Лидерборд загружен из JSONBin.io:', leaderboardData);
+                console.log('Лидерборд загружен из JSONBin.io (fallback):', leaderboardData);
             } catch (error) {
                 console.error('Ошибка загрузки лидерборда:', error);
                 // Fallback на localStorage
@@ -1167,7 +1196,7 @@
         }
         
         // Загружаем лидерборд при старте
-        loadLeaderboardFromJSONBin();
+        loadLeaderboardFromServer();
 
         function startGame() {
             gameState = {
@@ -1516,11 +1545,49 @@
                 return;
             }
             
-            // Сохранение в JSONBin.io (если не в Telegram)
-            saveScoreToJSONBin(playerName);
+            // Сохранение на Railway сервер (если не в Telegram)
+            saveScoreToServer(playerName);
         }
         
-        // Функция сохранения результата в JSONBin.io
+        // Функция сохранения результата на Railway сервер
+        async function saveScoreToServer(playerName) {
+            try {
+                const scoreData = {
+                    playerName: playerName,
+                    score: gameState.score,
+                    bugs: gameState.bugsEliminated,
+                    maxCombo: gameState.maxCombo
+                };
+                
+                const response = await fetch(`${SERVER_URL}/api/score`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(scoreData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('Результат сохранен на Railway сервере:', result.message);
+                    // Обновляем лидерборд с сервера
+                    await loadLeaderboardFromServer();
+                } else {
+                    console.error('Ошибка сохранения на Railway сервере:', result.error);
+                    // Fallback на JSONBin.io
+                    await saveScoreToJSONBin(playerName);
+                }
+            } catch (error) {
+                console.error('Ошибка подключения к Railway серверу:', error);
+                // Fallback на JSONBin.io
+                await saveScoreToJSONBin(playerName);
+            }
+            
+            restartGame();
+        }
+        
+        // Функция сохранения результата в JSONBin.io (fallback)
         async function saveScoreToJSONBin(playerName) {
             try {
                 // Загружаем текущий лидерборд
