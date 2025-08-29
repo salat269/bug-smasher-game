@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Bug Smasher - Kolesa Conf</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+            background: #008080;
+            color: #000;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .terminal-container {
+            width: 100%;
+            max-width: 420px;
+            height: 90vh;
+            max-height: 700px;
+            background: #c0c0c0;
+            border: 2px solid #000;
+            box-shadow: 4px 4px 0 #000;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .terminal-header {
+            background: linear-gradient(#000080, #00008b);
+            height: 24px;
+            display: flex;
+            align-items: center;
+            padding: 0 6px;
+            border-bottom: 2px solid #000;
+            color: #fff;
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        .terminal-buttons {
+            display: flex;
+            gap: 4px;
+        }
+
+        .terminal-button {
+            width: 16px;
+            height: 16px;
+            background: #c0c0c0;
+            border: 1px solid #000;
+            box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #fff;
+        }
+
+        .close { background: #c0c0c0; }
+        .minimize { background: #c0c0c0; }
+        .maximize { background: #c0c0c0; }
+
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-size: 11px;
+            color: #fff;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .win95-icon {
+            width: 16px;
+            height: 16px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        /* ===== GLITCH EFFECTS ===== */
+        .glitch-screen {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glitch-screen::before,
+        .glitch-screen::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* Screen shake effect - вспышки */
+        .glitch-screen.shake {
+            animation: screenShakeFlash 0.06s ease-out;
+        }
+
+        @keyframes screenShakeFlash {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-3px, -3px); }
+            50% { transform: translate(3px, 3px); }
+            75% { transform: translate(-2px, 2px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        /* Scanlines effect */
+        .glitch-screen::before {
+            background: repeating-linear-gradient(
+                transparent 0px,
+                transparent 1px,
+                rgba(255, 255, 255, 0.15) 1px,
+                rgba(255, 255, 255, 0.15) 2px
+            );
+            animation: scanlines 0.05s linear infinite;
+        }
+
+        @keyframes scanlines {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(3px); }
+        }
+
+        /* Random noise effect - вспышки */
+        .glitch-screen::after {
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.9) 3px, transparent 3px),
+                radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.9) 3px, transparent 3px),
+                radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.9) 3px, transparent 3px),
+                radial-gradient(circle at 60% 40%, rgba(255, 0, 0, 0.8) 2px, transparent 2px),
+                radial-gradient(circle at 10% 90%, rgba(0, 255, 255, 0.8) 2px, transparent 2px),
+                radial-gradient(circle at 70% 30%, rgba(255, 255, 0, 0.7) 2px, transparent 2px),
+                radial-gradient(circle at 30% 70%, rgba(255, 0, 255, 0.7) 2px, transparent 2px);
+            background-size: 30px 30px, 25px 25px, 28px 28px, 20px 20px, 18px 18px, 15px 15px, 12px 12px;
+            opacity: 0;
+            animation: noiseFlash 0.05s ease-out;
+        }
+
+        @keyframes noiseFlash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Text glitch effect */
+        .glitch-text {
+            position: relative;
+            display: inline-block;
+        }
+
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            color: inherit;
+            clip: rect(0, 0, 0, 0);
+        }
+
+        .glitch-text.glitch-active::before {
+            clip: rect(0, 0, 100%, 0);
+            animation: textGlitchFlash1 0.1s ease-out;
+            color: #ff0000;
+            transform: translate(-2px, 0);
+            text-shadow: 1px 0 0 #ff0000;
+        }
+
+        .glitch-text.glitch-active::after {
+            clip: rect(0, 0, 100%, 0);
+            animation: textGlitchFlash2 0.1s ease-out;
+            color: #00ffff;
+            transform: translate(2px, 0);
+            text-shadow: -1px 0 0 #00ffff;
+        }
+
+        @keyframes textGlitch1 {
+            0%, 100% { clip: rect(0, 0, 100%, 0); }
+            20% { clip: rect(0, 0, 0, 0); }
+            40% { clip: rect(0, 0, 100%, 0); }
+            60% { clip: rect(0, 0, 0, 0); }
+            80% { clip: rect(0, 0, 100%, 0); }
+        }
+
+        @keyframes textGlitch2 {
+            0%, 100% { clip: rect(0, 0, 0, 0); }
+            20% { clip: rect(0, 0, 100%, 0); }
+            40% { clip: rect(0, 0, 0, 0); }
+            60% { clip: rect(0, 0, 100%, 0); }
+            80% { clip: rect(0, 0, 0, 0); }
+        }
+
+        @keyframes textGlitchFlash1 {
+            0% { clip: rect(0, 0, 100%, 0); opacity: 0; }
+            50% { clip: rect(0, 0, 50%, 0); opacity: 1; }
+            100% { clip: rect(0, 0, 100%, 0); opacity: 0; }
+        }
+
+        @keyframes textGlitchFlash2 {
+            0% { clip: rect(0, 0, 100%, 0); opacity: 0; }
+            50% { clip: rect(50%, 0, 100%, 0); opacity: 1; }
+            100% { clip: rect(0, 0, 100%, 0); opacity: 0; }
+        }
+
+        /* Random glitch stripes - вспышки */
+        .glitch-stripe {
+            position: absolute;
+            height: 6px;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 1) 0%, 
+                rgba(255, 0, 0, 0.9) 15%, 
+                rgba(0, 255, 255, 0.9) 30%, 
+                rgba(255, 255, 0, 0.8) 45%, 
+                rgba(255, 0, 255, 0.8) 60%, 
+                rgba(0, 255, 0, 0.9) 75%, 
+                rgba(255, 255, 255, 1) 90%, 
+                rgba(255, 0, 0, 0.9) 100%);
+            opacity: 0;
+            animation: stripeGlitchFlash 0.08s ease-out;
+            z-index: 1001;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.9), 0 0 20px rgba(255, 0, 0, 0.6);
+        }
+
+        @keyframes stripeGlitchFlash {
+            0% { opacity: 0; transform: translateX(-80px) scaleY(1); }
+            50% { opacity: 1; transform: translateX(0) scaleY(1.5); }
+            100% { opacity: 0; transform: translateX(80px) scaleY(1); }
+        }
+
+        /* Wide noise bands - вспышки */
+        .glitch-noise-band {
+            position: absolute;
+            width: 100%;
+            height: 15px;
+            background: repeating-linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 1) 0px,
+                rgba(255, 255, 255, 1) 2px,
+                rgba(255, 0, 0, 0.9) 2px,
+                rgba(255, 0, 0, 0.9) 4px,
+                rgba(0, 255, 255, 0.9) 4px,
+                rgba(0, 255, 255, 0.9) 6px,
+                rgba(255, 255, 0, 0.8) 6px,
+                rgba(255, 255, 0, 0.8) 8px,
+                rgba(255, 0, 255, 0.8) 8px,
+                rgba(255, 0, 255, 0.8) 10px,
+                transparent 10px,
+                transparent 12px
+            );
+            opacity: 0;
+            animation: noiseBandFlash 0.1s ease-out;
+            z-index: 1002;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes noiseBandFlash {
+            0% { opacity: 0; transform: translateY(-30px); }
+            50% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(30px); }
+        }
+
+        /* Pixelation effect */
+        .glitch-pixelate {
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            filter: contrast(150%) brightness(120%);
+        }
+
+        .glitch-pixelate::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent 0px,
+                    transparent 1px,
+                    rgba(255, 255, 255, 0.1) 1px,
+                    rgba(255, 255, 255, 0.1) 2px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent 0px,
+                    transparent 1px,
+                    rgba(255, 255, 255, 0.1) 1px,
+                    rgba(255, 255, 255, 0.1) 2px
+                );
+            pointer-events: none;
+            z-index: 1003;
+        }
+
+        .terminal-content {
+            height: calc(100% - 24px);
+            padding: 8px;
+            overflow-y: auto;
+            position: relative;
+            background: #c0c0c0;
+            color: #000;
+        }
+
+        .prompt-line {
+            margin-bottom: 2px;
+            line-height: 1.2;
+            font-size: 12px;
+        }
+
+        .prompt {
+            color: #000080;
+            font-weight: bold;
+        }
+
+        .command {
+            color: #000;
+        }
+
+        .output {
+            color: #000;
+            margin-left: 16px;
+        }
+
+        .success {
+            color: #008000;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        .cursor {
+            background: #000;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .game-stats {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 6px;
+            background: #fff;
+            border: 2px solid #000;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .pause-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #c0c0c0;
+            border: 2px solid #000;
+            color: #000;
+            padding: 3px 8px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+            z-index: 100;
+            font-weight: bold;
+        }
+
+        .pause-button:hover {
+            background: #e0e0e0;
+        }
+
+        .game-field {
+            width: 100%;
+            height: 350px;
+            background: #fff;
+            border: 2px solid #000;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+            position: relative;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .bug {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            transition: transform 0.1s ease;
+            user-select: none;
+            animation: bugSpawn 0.3s ease;
+        }
+
+        @keyframes bugSpawn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .bug:hover {
+            transform: scale(1.2);
+        }
+
+        .bug:active {
+            transform: scale(0.8);
+        }
+
+        .bug.smashed {
+            animation: bugDestroy 0.4s ease forwards;
+            pointer-events: none;
+        }
+
+        @keyframes bugDestroy {
+            0% {
+                transform: scale(1);
+                filter: hue-rotate(0deg);
+            }
+            50% {
+                transform: scale(1.5);
+                filter: hue-rotate(180deg) brightness(1.5);
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+                filter: hue-rotate(360deg);
+            }
+        }
+
+        
+/* ===== BUG SPRITES: ultra-light SVG "evil pixel faces" ===== */
+:root {
+  --bug-size: 26px;
+}
+
+.bug {
+  position: absolute;
+  width: var(--bug-size);
+  height: var(--bug-size);
+  cursor: pointer;
+  user-select: none;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  transition: transform 0.1s ease;
+  animation: bugSpawn .25s ease, bugDrift 2.4s ease-in-out infinite;
+}
+
+/* Minimal pixel-face heads: 11x11 px grid rendered in SVG */
+.critical-bug {
+  /* red angry */
+  background-image: url("data:image/svg+xml;utf8,\
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11' shape-rendering='crispEdges'>\
+    <rect width='11' height='11' fill='%231b0000'/>\
+    <rect x='1' y='1' width='9' height='9' fill='%23b00000'/>\
+    <rect x='2' y='2' width='7' height='7' fill='%23ff1b1b'/>\
+    <!-- horns -->\
+    <rect x='1' y='1' width='2' height='1' fill='%23ff7878'/>\
+    <rect x='8' y='1' width='2' height='1' fill='%23ff7878'/>\
+    <!-- eyes -->\
+    <rect x='3' y='4' width='2' height='1' fill='black'/>\
+    <rect x='6' y='4' width='2' height='1' fill='black'/>\
+    <rect x='4' y='5' width='1' height='1' fill='%23ff5b5b'/>\
+    <rect x='6' y='5' width='1' height='1' fill='%23ff5b5b'/>\
+    <!-- mouth (zigzag) -->\
+    <rect x='3' y='7' width='5' height='1' fill='black'/>\
+    <rect x='4' y='8' width='3' height='1' fill='black'/>\
+  </svg>");
+  box-shadow: 0 0 0 1px #7a0000, 0 0 10px rgba(255,0,0,.35);
+  animation: bugSpawn .25s ease, bugDrift 2.2s ease-in-out infinite, criticalPulse 1.6s ease-in-out infinite;
+}
+
+.warning-bug {
+  /* amber smirk */
+  background-image: url("data:image/svg+xml;utf8,\
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11' shape-rendering='crispEdges'>\
+    <rect width='11' height='11' fill='%23201200'/>\
+    <rect x='1' y='1' width='9' height='9' fill='%239a5e00'/>\
+    <rect x='2' y='2' width='7' height='7' fill='%23ffb000'/>\
+    <!-- brows -->\
+    <rect x='2' y='3' width='3' height='1' fill='black'/>\
+    <rect x='6' y='3' width='3' height='1' fill='black'/>\
+    <!-- eyes -->\
+    <rect x='3' y='4' width='1' height='1' fill='black'/>\
+    <rect x='7' y='4' width='1' height='1' fill='black'/>\
+    <!-- smirk -->\
+    <rect x='3' y='7' width='5' height='1' fill='black'/>\
+    <rect x='7' y='8' width='1' height='1' fill='black'/>\
+  </svg>");
+  box-shadow: 0 0 0 1px #6e4600, 0 0 8px rgba(255,170,0,.25);
+}
+
+.minor-bug {
+  /* blue imp */
+  background-image: url("data:image/svg+xml;utf8,\
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 11' shape-rendering='crispEdges'>\
+    <rect width='11' height='11' fill='%23000d1a'/>\
+    <rect x='1' y='1' width='9' height='9' fill='%23005699'/>\
+    <rect x='2' y='2' width='7' height='7' fill='%2300a2ff'/>\
+    <!-- ears -->\
+    <rect x='1' y='1' width='1' height='1' fill='%2378d4ff'/>\
+    <rect x='9' y='1' width='1' height='1' fill='%2378d4ff'/>\
+    <!-- eyes -->\
+    <rect x='3' y='4' width='1' height='1' fill='black'/>\
+    <rect x='7' y='4' width='1' height='1' fill='black'/>\
+    <!-- tiny fang -->\
+    <rect x='5' y='7' width='1' height='1' fill='black'/>\
+  </svg>");
+  box-shadow: 0 0 0 1px #003c66, 0 0 6px rgba(0,153,255,.25);
+}
+
+/* ===== GLITCH EFFECTS ===== */
+.bug.glitch::before,
+.bug.glitch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  background-size: inherit;
+  background-position: inherit;
+  mix-blend-mode: screen;
+  opacity: .75;
+  pointer-events: none;
+}
+
+.bug.glitch::before { 
+  transform: translate(1px, 0);
+  filter: hue-rotate(25deg) saturate(1.2);
+  animation: glitchShift 1.2s steps(8,end) infinite;
+}
+.bug.glitch::after { 
+  transform: translate(-1px, 0);
+  filter: hue-rotate(-25deg) saturate(1.2);
+  animation: glitchShift 1.2s steps(8,end) infinite reverse;
+}
+
+@keyframes glitchShift {
+  0%   { clip-path: inset(0 0 70% 0); transform: translate(-1px, 0); }
+  20%  { clip-path: inset(20% 0 40% 0); transform: translate(1px, 0); }
+  40%  { clip-path: inset(60% 0 10% 0); transform: translate(-2px, 0); }
+  60%  { clip-path: inset(10% 0 60% 0); transform: translate(2px, 0); }
+  80%  { clip-path: inset(40% 0 20% 0); transform: translate(-1px, 0); }
+  100% { clip-path: inset(0 0 70% 0); transform: translate(0, 0); }
+}
+
+/* subtle drift */
+@keyframes bugDrift {
+  0%   { transform: translate(0, 0) rotate(0deg) }
+  25%  { transform: translate(1px, -1px) rotate(-2deg) }
+  50%  { transform: translate(-1px, 1px) rotate(2deg) }
+  75%  { transform: translate(1px, 0) rotate(-1deg) }
+  100% { transform: translate(0, 0) rotate(0deg) }
+}
+
+@keyframes criticalPulse {
+  0%, 100% { box-shadow: 0 0 0 1px #7a0000, 0 0 10px rgba(255,0,0,.35); }
+  50%      { box-shadow: 0 0 0 1px #7a0000, 0 0 16px rgba(255,0,0,.65); }
+}
+
+/* screen glitch overlay */
+.game-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(transparent 0 2px, rgba(255,255,255,.02) 2px 3px);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: scanlines 4s linear infinite;
+}
+@keyframes scanlines {
+  0% { opacity: .15; }
+  50% { opacity: .25; }
+  100% { opacity: .15; }
+}
+
+
+        .points-popup {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: pointsFloat 1s ease forwards;
+            z-index: 1000;
+            color: #008000;
+            text-shadow: 0 0 4px #008000;
+        }
+
+        @keyframes pointsFloat {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-40px) scale(1.2);
+            }
+        }
+
+        .start-screen, .game-over-screen, .leaderboard-screen {
+            position: absolute;
+            top: 24px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #c0c0c0;
+            padding: 8px;
+            z-index: 1000;
+        }
+
+        .terminal-input {
+            background: #fff;
+            border: 2px inset #808080;
+            color: #000;
+            font-family: inherit;
+            font-size: 12px;
+            outline: none;
+            width: 200px;
+            padding: 2px 4px;
+        }
+
+        .btn {
+            background: #c0c0c0;
+            border: 2px solid #000;
+            color: #000;
+            padding: 4px 8px;
+            font-family: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            margin: 2px 4px 2px 0;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            background: #e0e0e0;
+        }
+
+        .leaderboard {
+            margin: 8px 0;
+            padding: 8px;
+            background: #fff;
+            border: 2px solid #000;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #000;
+            color: #000;
+            font-size: 12px;
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+
+        .rank {
+            color: #000080;
+            font-weight: bold;
+        }
+
+        .player-name {
+            color: #000;
+            font-weight: bold;
+        }
+
+        .player-score {
+            color: #008000;
+            font-weight: bold;
+        }
+
+        .combo-indicator {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: #fff;
+            border: 2px solid #000;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+            padding: 3px 6px;
+            font-size: 11px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .combo-indicator.active {
+            opacity: 1;
+            animation: comboGlow 0.5s ease;
+        }
+
+        @keyframes comboGlow {
+            0%, 100% {
+                border-color: #000;
+                color: #000;
+            }
+            50% {
+                border-color: #000080;
+                color: #000080;
+                box-shadow: 0 0 8px rgba(0, 0, 128, 0.3);
+            }
+        }
+
+        .instructions {
+            margin: 8px 0;
+            padding: 8px;
+            background: #fff;
+            border: 2px solid #000;
+            box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #000;
+        }
+
+        .instructions h3 {
+            color: #000080;
+            margin-bottom: 6px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .instructions p {
+            color: #000;
+            margin-bottom: 3px;
+        }
+
+        .instructions code {
+            background: #f0f0f0;
+            color: #000;
+            padding: 1px 3px;
+            border: 1px solid #000;
+            font-size: 10px;
+        }
+    
+/* ===== Win95 / BSOD Game Over modal ===== */
+.modal-overlay {
+  position: absolute;
+  inset: 24px 0 0 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.6);
+  z-index: 2000;
+}
+
+.modal {
+  width: 92%;
+  max-width: 380px;
+  background: #c0c0c0;
+  border: 2px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  font-family: "MS Sans Serif", "Tahoma", system-ui, sans-serif;
+  color: #000;
+}
+
+.modal .titlebar {
+  background: linear-gradient(#000080, #00008b);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px;
+  height: 24px;
+  font-weight: bold;
+  letter-spacing: .2px;
+}
+
+.modal .titlebar .buttons {
+  display: flex;
+  gap: 4px;
+}
+.modal .titlebar .winbtn {
+  width: 18px; height: 18px;
+  background: #c0c0c0;
+  border: 1px solid #000;
+  box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #fff;
+  cursor: pointer;
+}
+
+.modal .content {
+  background: #c0c0c0;
+  color: #000;
+  padding: 8px;
+  border-top: 2px solid #fff;
+  border-left: 2px solid #fff;
+  border-right: 2px solid #808080;
+  border-bottom: 2px solid #808080;
+}
+
+.modal .row { 
+  display: flex; 
+  justify-content: space-between; 
+  margin: 6px 0; 
+  color: #000;
+  font-weight: 500;
+}
+
+.modal .row strong {
+  color: #000080;
+  font-weight: bold;
+}
+
+.modal .kbd { 
+  background: #fff; 
+  border: 1px inset #808080; 
+  padding: 2px 4px; 
+  color: #000;
+}
+
+.modal .leader {
+  margin-top: 6px;
+  background: #fff;
+  border: 2px inset #808080;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 11px;
+  color: #000;
+}
+
+.modal .leader .item { 
+  display: flex; 
+  justify-content: space-between; 
+  padding: 4px 6px; 
+  border-bottom: 1px dashed #c0c0c0; 
+  color: #000;
+}
+.modal .leader .item:last-child { border-bottom: none; }
+
+.modal .actions { 
+  display: flex; 
+  gap: 8px; 
+  justify-content: flex-end; 
+  margin-top: 12px; 
+}
+.modal .actions .btn95 {
+  min-width: 88px;
+  padding: 3px 8px;
+  background: #c0c0c0;
+  color: #000;
+  border: 2px solid #000;
+  box-shadow: inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.modal .actions .btn95:hover {
+  background: #e0e0e0;
+}
+
+.modal .input95 {
+  width: 100%;
+  background: #fff;
+  color: #000;
+  border: 2px inset #808080;
+  padding: 6px;
+  font-family: inherit;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+/* BSOD theme */
+.modal.bsod {
+  background: #0000aa;
+  color: #fff;
+  border: 2px solid #000066;
+  box-shadow: none;
+}
+.modal.bsod .titlebar { background: #000080; }
+.modal.bsod .content {
+  border: none;
+  background: #0000aa;
+  font-family: "Lucida Console", monospace;
+  color: #fff;
+}
+.modal.bsod .row {
+  color: #fff;
+}
+.modal.bsod .row strong {
+  color: #ffff00;
+}
+.modal.bsod .leader { 
+  background: transparent; 
+  color: #fff; 
+  border: 1px solid #fff; 
+}
+.modal.bsod .btn95 { 
+  background: #000080; 
+  color: #fff; 
+  border-color: #fff; 
+  box-shadow: none; 
+}
+.modal.bsod .input95 {
+  background: #000080;
+  color: #fff;
+  border-color: #fff;
+}
+
+/* Show overlay when active */
+.modal-overlay.active { display: flex; }
+
+</style>
+</head>
+<body>
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <div class="terminal-button close"></div>
+                <div class="terminal-button minimize"></div>
+                <div class="terminal-button maximize"></div>
+            </div>
+            <div class="terminal-title">
+                <div class="win95-icon" style="background-image: url('./icons/app-icon.svg')"></div>
+                terminal-bug-smasher@kolesa-conf:~
+            </div>
+        </div>
+        
+        <div class="terminal-content">
+            <div class="start-screen glitch-screen glitch-pixelate" id="startScreen">
+                <div class="prompt-line">
+                    <span class="prompt">root@kolesa-conf:~$</span> <span class="command">./bug_smasher --version</span>
+                </div>
+                <div class="prompt-line output">Bug Smasher v2.0.1 - Kolesa Conference Edition</div>
+                <div class="prompt-line output">Build: 2024.08.12-release</div>
+                <br>
+                <div class="prompt-line">
+                    <span class="prompt">root@kolesa-conf:~$</span> <span class="command">./bug_smasher --help</span>
+                </div>
+                <div class="prompt-line output">USAGE: Click bugs to eliminate them from codebase</div>
+                <div class="prompt-line output">
+                    🔴 CRITICAL: <span class="output">50pts</span> - 
+                    🟡 WARNING: <span class="warning">20pts</span> - 
+                    🔵 MINOR: <span class="success">10pts</span>
+                </div>
+                <div class="prompt-line output">COMBO MULTIPLIER: Max x5 for fast eliminations</div>
+                <div class="prompt-line output">TIME LIMIT: 60 seconds</div>
+                <br>
+                <div class="prompt-line">
+                    <span class="prompt">root@kolesa-conf:~$</span> <span class="command">./bug_smasher --start</span>
+                </div>
+                <div class="prompt-line">
+                    <span class="success">Ready to debug? Press START to initialize...</span>
+                </div>
+                <br>
+                <button class="btn" onclick="startGame()">
+                    <div class="win95-icon" style="background-image: url('./icons/folder-green.svg')"></div>
+                    START
+                </button>
+                <button class="btn" onclick="showLeaderboard()">
+                    <div class="win95-icon" style="background-image: url('./icons/folder-cyan.svg')"></div>
+                    LEADERBOARD
+                </button>
+
+            </div>
+
+            <div class="leaderboard-screen glitch-screen glitch-pixelate" id="leaderboardScreen" style="display: none;">
+                <div class="prompt-line">
+                    <span class="prompt">root@kolesa-conf:~$</span> <span class="command">cat /var/log/highscores.log</span>
+                </div>
+                <div class="leaderboard" id="leaderboard">
+                    <div class="leaderboard-entry">
+                        <span class="rank">#1</span>
+                        <span class="player-name">Player</span>
+                        <span class="player-score">0</span>
+                    </div>
+                </div>
+                <div class="prompt-line">
+                    <input type="text" class="terminal-input" id="playerName" placeholder="enter_your_name" maxlength="16" onkeypress="handleNameInput(event)">
+                    <span class="cursor">█</span>
+                </div>
+                <br>
+                <button class="btn" onclick="savePlayerName()">
+                    <div class="win95-icon" style="background-image: url('./icons/folder-green.svg')"></div>
+                    SAVE NAME
+                </button>
+                <button class="btn" onclick="hideLeaderboard()">
+                    <div class="win95-icon" style="background-image: url('./icons/folder-cyan.svg')"></div>
+                    BACK
+                </button>
+            </div>
+
+
+
+            <div class="game-stats" id="gameStats" style="display: none;">
+                <div>SCORE: <span class="success" id="score">0</span></div>
+                <div>TIME: <span class="output" id="timer">60</span>s</div>
+                <div>BUGS: <span class="warning" id="bugsCount">0</span></div>
+            </div>
+
+            <div class="game-field" id="gameField" style="display: none;">
+                <button class="pause-button" id="pauseButton" onclick="pauseGame()">PAUSE</button>
+                <div class="combo-indicator" id="comboIndicator">
+                    COMBO x<span id="comboCount">1</span>
+                </div>
+            </div>
+
+            <div class="modal-overlay" id="gameOverOverlay">
+        <div class="modal win95 glitch-screen glitch-pixelate" id="gameOverModal">
+          <div class="titlebar">
+            <span>bug_smasher.exe - Fatal</span>
+            <div class="buttons">
+              <div class="winbtn" id="toggleTheme" title="Toggle BSOD"></div>
+              <div class="winbtn" id="closeModal" title="Close"></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="row"><strong>FINAL SCORE</strong> <span id="finalScore">0</span></div>
+            <div class="row"><strong>BUGS ELIMINATED</strong> <span id="finalBugs">0</span></div>
+            <div class="row"><strong>MAX COMBO</strong> <span id="maxCombo">1</span></div>
+            <div style="margin-top:6px;">ENTER NAME:</div>
+            <input class="input95" id="gameOverName" placeholder="enter_your_name" maxlength="16"/>
+            <div class="leader" id="leaderboardModal"></div>
+            <div class="actions">
+              <button class="btn95" onclick="saveScore()">
+                <div class="win95-icon" style="background-image: url('./icons/folder-green.svg')"></div>
+                Save
+              </button>
+              <button class="btn95" onclick="restartGame()">
+                <div class="win95-icon" style="background-image: url('./icons/folder-cyan.svg')"></div>
+                Restart
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="pauseOverlay">
+        <div class="modal win95 glitch-screen glitch-pixelate" id="pauseModal">
+          <div class="titlebar">
+            <span>bug_smasher.exe - Paused</span>
+            <div class="buttons">
+              <div class="winbtn" id="closePauseModal" title="Close"></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="row"><strong>GAME PAUSED</strong></div>
+            <div class="row"><strong>CURRENT SCORE</strong> <span id="pauseScore">0</span></div>
+            <div class="row"><strong>TIME LEFT</strong> <span id="pauseTime">120</span>s</div>
+            <div class="row"><strong>BUGS ELIMINATED</strong> <span id="pauseBugs">0</span></div>
+            <div class="actions">
+              <button class="btn95" onclick="resumeGame()">
+                <div class="win95-icon" style="background-image: url('./icons/folder-green.svg')"></div>
+                Resume
+              </button>
+              <button class="btn95" onclick="pauseToMainMenu()">
+                <div class="win95-icon" style="background-image: url('./icons/folder-blue.svg')"></div>
+                Main Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            score: 0,
+            timeLeft: 60,
+            bugsEliminated: 0,
+            gameActive: false,
+            gamePaused: false,
+            bugs: [],
+            combo: 1,
+            maxCombo: 1,
+            gameTimer: null,
+            spawnTimer: null,
+            comboTimer: null
+        };
+
+        const elements = {
+            scoreEl: document.getElementById('score'),
+            timerEl: document.getElementById('timer'),
+            bugsCountEl: document.getElementById('bugsCount'),
+            gameField: document.getElementById('gameField'),
+            gameStats: document.getElementById('gameStats'),
+            startScreen: document.getElementById('startScreen'),
+            leaderboardScreen: document.getElementById('leaderboardScreen'),
+            comboIndicator: document.getElementById('comboIndicator'),
+            comboCount: document.getElementById('comboCount'),
+            finalScore: document.getElementById('finalScore'),
+            finalBugs: document.getElementById('finalBugs'),
+            maxComboEl: document.getElementById('maxCombo'),
+            playerName: document.getElementById('playerName'),
+            gameOverName: document.getElementById('gameOverName'),
+            leaderboard: document.getElementById('leaderboard')
+        };
+
+        const bugTypes = [
+            { type: 'critical', points: 50, className: 'critical-bug', probability: 0.15 },
+            { type: 'warning', points: 20, className: 'warning-bug', probability: 0.35 },
+            { type: 'minor', points: 10, className: 'minor-bug', probability: 0.5 }
+        ];
+
+        // Загрузить лидерборд из памяти (в реальном Telegram боте - из базы данных)
+        let leaderboardData = JSON.parse(localStorage.getItem('bugSmasherLeaderboard') || '[]');
+
+        function startGame() {
+            gameState = {
+                score: 0,
+                timeLeft: 60,
+                bugsEliminated: 0,
+                gameActive: true,
+                gamePaused: false,
+                bugs: [],
+                combo: 1,
+                maxCombo: 1,
+                gameTimer: null,
+                spawnTimer: null,
+                comboTimer: null
+            };
+
+            elements.startScreen.style.display = 'none';
+            elements.gameStats.style.display = 'flex';
+            elements.gameField.style.display = 'block';
+
+            // Stop glitch effects during gameplay
+            stopGlitchEffects();
+
+            updateUI();
+            startGameLoop();
+            spawnBug();
+        }
+
+        function pauseGame() {
+            if (!gameState.gameActive || gameState.gamePaused) return;
+            
+            gameState.gamePaused = true;
+            clearInterval(gameState.gameTimer);
+            clearTimeout(gameState.spawnTimer);
+            clearTimeout(gameState.comboTimer);
+            
+            // Update pause modal with current stats
+            document.getElementById('pauseScore').textContent = gameState.score;
+            document.getElementById('pauseTime').textContent = gameState.timeLeft;
+            document.getElementById('pauseBugs').textContent = gameState.bugsEliminated;
+            
+            // Show pause modal
+            document.getElementById('pauseOverlay').classList.add('active');
+        }
+
+        function resumeGame() {
+            if (!gameState.gameActive || !gameState.gamePaused) return;
+            
+            gameState.gamePaused = false;
+            
+            // Hide pause modal
+            document.getElementById('pauseOverlay').classList.remove('active');
+            
+            // Resume game loop
+            startGameLoop();
+            spawnBug();
+        }
+
+        function pauseToMainMenu() {
+            // Clear all timers
+            clearInterval(gameState.gameTimer);
+            clearTimeout(gameState.spawnTimer);
+            clearTimeout(gameState.comboTimer);
+            
+            // Clear bugs
+            gameState.bugs.forEach(bug => {
+                if (bug.element && bug.element.parentNode) {
+                    bug.element.parentNode.removeChild(bug.element);
+                }
+            });
+            
+            // Reset game state
+            gameState = {
+                score: 0,
+                timeLeft: 60,
+                bugsEliminated: 0,
+                gameActive: false,
+                gamePaused: false,
+                bugs: [],
+                combo: 1,
+                maxCombo: 1,
+                gameTimer: null,
+                spawnTimer: null,
+                comboTimer: null
+            };
+            
+            // Hide pause modal
+            document.getElementById('pauseOverlay').classList.remove('active');
+            
+            // Show start screen
+            elements.gameStats.style.display = 'none';
+            elements.gameField.style.display = 'none';
+            elements.startScreen.style.display = 'block';
+            
+            // Restart glitch effects
+            startGlitchEffects();
+        }
+
+        function startGameLoop() {
+            gameState.gameTimer = setInterval(() => {
+                gameState.timeLeft--;
+                elements.timerEl.textContent = gameState.timeLeft;
+
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameState.gameActive = false;
+            clearInterval(gameState.gameTimer);
+            clearTimeout(gameState.spawnTimer);
+            clearTimeout(gameState.comboTimer);
+
+            // Clear field
+            gameState.bugs.forEach(bug => {
+                if (bug.element && bug.element.parentNode) {
+                    bug.element.parentNode.removeChild(bug.element);
+                }
+            });
+            gameState.bugs = [];
+
+            // Results
+            elements.finalScore.textContent = gameState.score;
+            elements.finalBugs.textContent = gameState.bugsEliminated;
+            elements.maxComboEl.textContent = gameState.maxCombo;
+
+            elements.gameStats.style.display = 'none';
+            elements.gameField.style.display = 'none';
+
+            // Build leaderboard inside modal
+            renderModalLeaderboard();
+
+            // Show modal overlay
+            const overlay = document.getElementById('gameOverOverlay');
+            overlay.classList.add('active');
+        }
+
+        function spawnBug() {
+            if (!gameState.gameActive || gameState.gamePaused) return;
+
+            const bugType = selectBugType();
+            const bug = createBug(bugType);
+            gameState.bugs.push(bug);
+
+            // Увеличиваем частоту появления со временем
+            const speedMultiplier = Math.max(0.3, 1 - (60 - gameState.timeLeft) / 100);
+            const delay = (Math.random() * 800 + 400) * speedMultiplier;
+            
+            gameState.spawnTimer = setTimeout(spawnBug, delay);
+        }
+
+        function selectBugType() {
+            const rand = Math.random();
+            let cumulative = 0;
+
+            for (const bugType of bugTypes) {
+                cumulative += bugType.probability;
+                if (rand <= cumulative) {
+                    return bugType;
+                }
+            }
+            return bugTypes[bugTypes.length - 1];
+        }
+
+        function createBug(bugType) {
+            const bugElement = document.createElement('div');
+            bugElement.className = `bug ${bugType.className}`;
+
+            // Occasionally add glitch layer
+            if (Math.random() < 0.55) bugElement.classList.add('glitch');
+
+            // Append early so computed styles are available
+            elements.gameField.appendChild(bugElement);
+
+            // Use fixed fallback size to avoid NaN
+            const size = 24;
+            const maxX = elements.gameField.offsetWidth - size;
+            const maxY = elements.gameField.offsetHeight - size;
+            const x = Math.random() * maxX;
+            const y = Math.random() * maxY;
+
+            bugElement.style.left = x + 'px';
+            bugElement.style.top = y + 'px';
+
+            // Slightly different drift durations per bug
+            bugElement.style.animationDuration = `${(Math.random()*1.2 + 1.6).toFixed(2)}s`;
+
+            const bug = {
+                element: bugElement,
+                type: bugType,
+                timeout: null
+            };
+
+            bugElement.addEventListener('click', () => smashBug(bug));
+
+            // Bug disappears in 2–3s
+            bug.timeout = setTimeout(() => {
+                removeBug(bug);
+                resetCombo();
+            }, Math.random() * 1000 + 2000);
+
+            return bug;
+        }
+
+        function smashBug(bug) {
+            if (!gameState.gameActive || gameState.gamePaused || !bug.element.parentNode) return;
+
+            clearTimeout(bug.timeout);
+
+            const points = bug.type.points * gameState.combo;
+            gameState.score += points;
+            gameState.bugsEliminated++;
+
+            // Показать очки
+            showPointsPopup(bug.element, points);
+
+            // Увеличить комбо
+            increaseCombo();
+
+            // Анимация уничтожения
+            bug.element.classList.add('smashed');
+            setTimeout(() => removeBug(bug), 400);
+
+            updateUI();
+        }
+
+        function removeBug(bug) {
+            if (bug.element && bug.element.parentNode) {
+                bug.element.parentNode.removeChild(bug.element);
+            }
+            const index = gameState.bugs.indexOf(bug);
+            if (index > -1) {
+                gameState.bugs.splice(index, 1);
+            }
+        }
+
+        function showPointsPopup(element, points) {
+            const popup = document.createElement('div');
+            popup.className = 'points-popup';
+            popup.textContent = `+${points}`;
+            popup.style.left = element.style.left;
+            popup.style.top = element.style.top;
+
+            if (gameState.combo > 1) {
+                popup.style.color = '#d29922';
+                popup.textContent += ` (x${gameState.combo})`;
+            }
+
+            elements.gameField.appendChild(popup);
+
+            setTimeout(() => {
+                if (popup.parentNode) {
+                    popup.parentNode.removeChild(popup);
+                }
+            }, 1000);
+        }
+
+        function increaseCombo() {
+            gameState.combo = Math.min(gameState.combo + 1, 5);
+            gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
+            elements.comboCount.textContent = gameState.combo;
+
+            if (gameState.combo > 1) {
+                elements.comboIndicator.classList.add('active');
+            }
+
+            clearTimeout(gameState.comboTimer);
+            gameState.comboTimer = setTimeout(resetCombo, 2500);
+        }
+
+        function resetCombo() {
+            gameState.combo = 1;
+            elements.comboIndicator.classList.remove('active');
+            elements.comboCount.textContent = gameState.combo;
+        }
+
+        function updateUI() {
+            elements.scoreEl.textContent = gameState.score;
+            elements.bugsCountEl.textContent = gameState.bugsEliminated;
+        }
+
+        function showLeaderboard() {
+            elements.startScreen.style.display = 'none';
+            elements.leaderboardScreen.style.display = 'block';
+            renderLeaderboard();
+            
+            // Focus on name input field
+            setTimeout(() => {
+                const nameInput = document.getElementById('playerName');
+                if (nameInput) {
+                    nameInput.focus();
+                }
+            }, 100);
+            
+            // Ensure glitch effects are running
+            startGlitchEffects();
+        }
+
+        function hideLeaderboard() {
+            elements.leaderboardScreen.style.display = 'none';
+            elements.startScreen.style.display = 'block';
+            
+            // Ensure glitch effects are running
+            startGlitchEffects();
+        }
+
+
+
+        function handleNameInput(event) {
+            if (event.key === 'Enter') {
+                savePlayerName();
+            }
+        }
+
+        function savePlayerName() {
+            const playerName = elements.playerName.value.trim();
+            if (playerName) {
+                localStorage.setItem('bugSmasherPlayerName', playerName);
+                alert('Name saved: ' + playerName);
+            } else {
+                alert('Please enter a valid name');
+            }
+        }
+
+        function saveScore() {
+            const savedName = localStorage.getItem('bugSmasherPlayerName');
+            const playerName = elements.gameOverName.value.trim() || savedName || 'Anonymous';
+            
+            // Отправляем результат в Telegram Web App
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                
+                // Отправляем данные в бот
+                tg.sendData(JSON.stringify({
+                    action: 'game_result',
+                    score: gameState.score,
+                    bugs: gameState.bugsEliminated,
+                    maxCombo: gameState.maxCombo,
+                    playerName: playerName
+                }));
+                
+                // Закрываем Web App
+                tg.close();
+                return;
+            }
+            
+            // Локальное сохранение (если не в Telegram)
+            leaderboardData.push({
+                name: playerName,
+                score: gameState.score,
+                bugs: gameState.bugsEliminated,
+                combo: gameState.maxCombo,
+                date: new Date().toISOString()
+            });
+
+            // Сортировать по очкам и оставить топ-15
+            leaderboardData.sort((a, b) => b.score - a.score);
+            leaderboardData = leaderboardData.slice(0, 15);
+
+            // Сохранить в localStorage
+            localStorage.setItem('bugSmasherLeaderboard', JSON.stringify(leaderboardData));
+
+            restartGame();
+        }
+
+        function renderLeaderboard() {
+            elements.leaderboard.innerHTML = '';
+            
+            // Add leaderboard info
+            const infoEl = document.createElement('div');
+            infoEl.className = 'prompt-line output';
+            infoEl.innerHTML = `📊 Leaderboard (${leaderboardData.length}/15 records)`;
+            elements.leaderboard.appendChild(infoEl);
+            
+            if (leaderboardData.length === 0) {
+                const emptyEl = document.createElement('div');
+                emptyEl.className = 'prompt-line output';
+                emptyEl.innerHTML = 'No records found. Be the first!';
+                elements.leaderboard.appendChild(emptyEl);
+                return;
+            }
+
+            leaderboardData.forEach((entry, index) => {
+                const entryEl = document.createElement('div');
+                entryEl.className = 'leaderboard-entry';
+                
+                entryEl.innerHTML = `
+                    <span class="rank">#${index + 1}</span>
+                    <span class="player-name">${entry.name}</span>
+                    <span class="player-score">${entry.score}</span>
+                `;
+                
+                elements.leaderboard.appendChild(entryEl);
+            });
+        }
+
+        function renderModalLeaderboard() {
+            const box = document.getElementById('leaderboardModal');
+            box.innerHTML = '';
+            const data = leaderboardData.length ? leaderboardData : [];
+            if (data.length === 0) {
+                box.innerHTML = "<div style='padding:6px;'>No records yet. Be the first!</div>";
+                return;
+            }
+            data.forEach((entry, i) => {
+                const row = document.createElement('div');
+                row.className = 'item';
+                row.innerHTML = `<span>#${i+1} ${entry.name}</span><span>${entry.score}</span>`;
+                box.appendChild(row);
+            });
+        }
+
+        function restartGame() {
+            const overlay = document.getElementById('gameOverOverlay');
+            if (overlay) overlay.classList.remove('active');
+            elements.startScreen.style.display = 'block';
+            elements.gameOverName.value = '';
+            
+            // Restart glitch effects
+            startGlitchEffects();
+        }
+
+        // Предотвратить выделение текста
+        document.addEventListener('selectstart', e => e.preventDefault());
+
+        // Close / toggle theme
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'closeModal') {
+                document.getElementById('gameOverOverlay').classList.remove('active');
+                restartGame();
+            }
+            if (e.target && e.target.id === 'closePauseModal') {
+                document.getElementById('pauseOverlay').classList.remove('active');
+                resumeGame();
+            }
+            if (e.target && e.target.id === 'toggleTheme') {
+                const modal = document.getElementById('gameOverModal');
+                modal.classList.toggle('bsod');
+            }
+        });
+
+        // Telegram Web App интеграция
+        if (window.Telegram && window.Telegram.WebApp) {
+            const tg = window.Telegram.WebApp;
+            tg.ready();
+            
+            // Расширить на весь экран
+            tg.expand();
+            
+            // Отправить результат обратно в бота при окончании игры
+            function sendScoreToBot(score, bugs, maxCombo) {
+                tg.sendData(JSON.stringify({
+                    action: 'game_finished',
+                    score: score,
+                    bugs_eliminated: bugs,
+                    max_combo: maxCombo,
+                    timestamp: Date.now()
+                }));
+            }
+            
+            // Модифицируем функцию сохранения счета
+            const originalSaveScore = saveScore;
+            saveScore = function() {
+                originalSaveScore();
+                sendScoreToBot(gameState.score, gameState.bugsEliminated, gameState.maxCombo);
+            };
+        }
+
+        // ===== GLITCH EFFECTS SYSTEM =====
+        let glitchInterval = null;
+        let textGlitchInterval = null;
+        let stripeInterval = null;
+        let noiseBandInterval = null;
+        let pixelGlitchInterval = null;
+
+        function startGlitchEffects() {
+            // Screen shake - вспышки
+            glitchInterval = setInterval(() => {
+                const glitchScreens = document.querySelectorAll('.glitch-screen');
+                glitchScreens.forEach(screen => {
+                    if (Math.random() < 0.6) {
+                        screen.classList.add('shake');
+                        setTimeout(() => {
+                            screen.classList.remove('shake');
+                        }, 80);
+                    }
+                });
+            }, 800);
+
+            // Text glitch - вспышки
+            textGlitchInterval = setInterval(() => {
+                const texts = document.querySelectorAll('.prompt, .command, .output, .success, .warning, .row strong, .row span');
+                texts.forEach(text => {
+                    if (Math.random() < 0.3) {
+                        text.classList.add('glitch-text');
+                        text.setAttribute('data-text', text.textContent);
+                        text.classList.add('glitch-active');
+                        setTimeout(() => {
+                            text.classList.remove('glitch-active');
+                        }, 150);
+                    }
+                });
+            }, 600);
+
+            // Random stripes - вспышки
+            stripeInterval = setInterval(() => {
+                if (Math.random() < 0.4) {
+                    createGlitchStripe();
+                }
+            }, 1000);
+
+            // Wide noise bands - вспышки
+            noiseBandInterval = setInterval(() => {
+                if (Math.random() < 0.35) {
+                    createNoiseBand();
+                }
+            }, 1200);
+
+            // Pixel glitch - вспышки
+            pixelGlitchInterval = setInterval(() => {
+                if (Math.random() < 0.4) {
+                    createPixelGlitch();
+                }
+            }, 800);
+        }
+
+        function stopGlitchEffects() {
+            if (glitchInterval) clearInterval(glitchInterval);
+            if (textGlitchInterval) clearInterval(textGlitchInterval);
+            if (stripeInterval) clearInterval(stripeInterval);
+            if (noiseBandInterval) clearInterval(noiseBandInterval);
+            if (pixelGlitchInterval) clearInterval(pixelGlitchInterval);
+        }
+
+        function createGlitchStripe() {
+            const glitchScreens = document.querySelectorAll('.glitch-screen');
+            glitchScreens.forEach(screen => {
+                if (screen.style.display !== 'none') {
+                    // Создаем 1-2 полосы для вспышки
+                    const stripeCount = Math.floor(Math.random() * 2) + 1;
+                    
+                    for (let i = 0; i < stripeCount; i++) {
+                        const stripe = document.createElement('div');
+                        stripe.className = 'glitch-stripe';
+                        stripe.style.top = Math.random() * screen.offsetHeight + 'px';
+                        stripe.style.width = Math.random() * 200 + 150 + 'px';
+                        stripe.style.left = Math.random() * screen.offsetWidth + 'px';
+                        
+                        screen.appendChild(stripe);
+                        
+                        setTimeout(() => {
+                            if (stripe.parentNode) {
+                                stripe.parentNode.removeChild(stripe);
+                            }
+                        }, 100);
+                    }
+                }
+            });
+        }
+
+        function createNoiseBand() {
+            const glitchScreens = document.querySelectorAll('.glitch-screen');
+            glitchScreens.forEach(screen => {
+                if (screen.style.display !== 'none') {
+                    const noiseBand = document.createElement('div');
+                    noiseBand.className = 'glitch-noise-band';
+                    noiseBand.style.top = Math.random() * screen.offsetHeight + 'px';
+                    
+                    screen.appendChild(noiseBand);
+                    
+                    setTimeout(() => {
+                        if (noiseBand.parentNode) {
+                            noiseBand.parentNode.removeChild(noiseBand);
+                        }
+                    }, 120);
+                }
+            });
+        }
+
+        function createPixelGlitch() {
+            const glitchScreens = document.querySelectorAll('.glitch-screen');
+            glitchScreens.forEach(screen => {
+                if (screen.style.display !== 'none' && Math.random() < 0.5) {
+                    // Краткая вспышка пикселизации
+                    screen.style.filter = 'contrast(180%) brightness(130%) saturate(150%)';
+                    screen.style.transform = 'scale(0.99)';
+                    
+                    setTimeout(() => {
+                        screen.style.filter = '';
+                        screen.style.transform = '';
+                    }, 80);
+                }
+            });
+        }
+
+        // Инициализация
+        renderLeaderboard();
+        
+        // Load saved player name
+        const savedName = localStorage.getItem('bugSmasherPlayerName');
+        if (savedName && elements.playerName) {
+            elements.playerName.value = savedName;
+        }
+
+        // Start glitch effects
+        startGlitchEffects();
+    </script>
+</body>
+</html>
