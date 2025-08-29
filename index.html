@@ -1129,8 +1129,45 @@
             { type: 'minor', points: 10, className: 'minor-bug', probability: 0.5 }
         ];
 
-        // Загрузить лидерборд из памяти (в реальном Telegram боте - из базы данных)
-        let leaderboardData = JSON.parse(localStorage.getItem('bugSmasherLeaderboard') || '[]');
+        // Загрузить лидерборд из JSONBin.io
+        let leaderboardData = [];
+        const JSONBIN_API_KEY = '$2a$10$24K2WireYEjy.ps/aBfqd.3Jih4k1WiguaBXwTNj2GLrqJfF7NJEi';
+        const JSONBIN_BIN_ID = '68b1b5ddd0ea881f406a454d';
+        
+        // Функция загрузки лидерборда с JSONBin.io
+        async function loadLeaderboardFromJSONBin() {
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+                    headers: {
+                        'X-Master-Key': JSONBIN_API_KEY
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.record && data.record.leaderboard) {
+                    // Если структура с объектом
+                    leaderboardData = data.record.leaderboard;
+                } else if (Array.isArray(data.record)) {
+                    // Если структура с массивом
+                    leaderboardData = data.record.filter(item => 
+                        !(item.name === "Example Player" && item.score === 0)
+                    );
+                } else {
+                    leaderboardData = [];
+                }
+                
+                renderLeaderboard();
+                console.log('Лидерборд загружен из JSONBin.io:', leaderboardData);
+            } catch (error) {
+                console.error('Ошибка загрузки лидерборда:', error);
+                // Fallback на localStorage
+                leaderboardData = JSON.parse(localStorage.getItem('bugSmasherLeaderboard') || '[]');
+            }
+        }
+        
+        // Загружаем лидерборд при старте
+        loadLeaderboardFromJSONBin();
 
         function startGame() {
             gameState = {
@@ -1479,7 +1516,69 @@
                 return;
             }
             
-            // Локальное сохранение (если не в Telegram)
+            // Сохранение в JSONBin.io (если не в Telegram)
+            saveScoreToJSONBin(playerName);
+        }
+        
+        // Функция сохранения результата в JSONBin.io
+        async function saveScoreToJSONBin(playerName) {
+            try {
+                // Загружаем текущий лидерборд
+                const currentLeaderboard = await loadLeaderboardFromJSONBin();
+                
+                // Добавляем новый результат
+                const newScore = {
+                    name: playerName,
+                    score: gameState.score,
+                    bugs: gameState.bugsEliminated,
+                    combo: gameState.maxCombo,
+                    date: new Date().toISOString()
+                };
+                
+                currentLeaderboard.push(newScore);
+                
+                // Сортируем по очкам и оставляем топ-15
+                currentLeaderboard.sort((a, b) => b.score - a.score);
+                const top15 = currentLeaderboard.slice(0, 15);
+                
+                // Обновляем весь объект
+                const updatedData = {
+                    leaderboard: top15,
+                    lastUpdated: new Date().toISOString(),
+                    game: "Bug Smasher"
+                };
+                
+                // Сохраняем в JSONBin.io
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': JSONBIN_API_KEY
+                    },
+                    body: JSON.stringify(updatedData)
+                });
+                
+                if (response.ok) {
+                    console.log('Результат сохранен в JSONBin.io!');
+                    // Обновляем локальный лидерборд
+                    leaderboardData = top15;
+                    renderLeaderboard();
+                } else {
+                    console.error('Ошибка сохранения в JSONBin.io');
+                    // Fallback на localStorage
+                    saveToLocalStorage(playerName);
+                }
+            } catch (error) {
+                console.error('Ошибка подключения к JSONBin.io:', error);
+                // Fallback на localStorage
+                saveToLocalStorage(playerName);
+            }
+            
+            restartGame();
+        }
+        
+        // Функция сохранения в localStorage (fallback)
+        function saveToLocalStorage(playerName) {
             leaderboardData.push({
                 name: playerName,
                 score: gameState.score,
@@ -1494,8 +1593,6 @@
 
             // Сохранить в localStorage
             localStorage.setItem('bugSmasherLeaderboard', JSON.stringify(leaderboardData));
-
-            restartGame();
         }
 
         function renderLeaderboard() {
